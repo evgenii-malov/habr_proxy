@@ -50,7 +50,6 @@ class MainHandler(tornado.web.RequestHandler):
     @gen.coroutine
     def get(self):
         try:
-            print(self.request.uri)
             response = yield httpclient.AsyncHTTPClient().fetch(
                 "https://habrahabr.ru{}".format(self.request.uri))
             if response.headers["Content-Type"] == 'text/html; charset=UTF-8':
