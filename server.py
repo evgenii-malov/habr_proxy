@@ -7,22 +7,28 @@ from traceback import format_exc
 from concurrent.futures import ProcessPoolExecutor
 from xml.sax.saxutils import unescape
 
-
 SERVER_PORT = 8888
 TAGS_TO_CHECK_TEXT_IN = (
-    'p', 'span', 'div', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'br')
-ALLOW_LETTERS = u"абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙК"
-"ЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    'p', 'span', 'div', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'br',
+    'strong', 's', 'b', 'i', 'em', 'mark', 'small', 'del', 'ins', 'sub',
+    'sup', 'blockquote', 'q')
+ALLOW_LETTERS = u"""абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙК"
+"ЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"""
+STRIP_WORD_CHARS = u'!;,.?()[]"<>«»^'''
 
 
-def is_tm(w):
-    return (len(w) == 6 and all(c in ALLOW_LETTERS for c in w))
+def process_word(w):
+    sw = w.strip(STRIP_WORD_CHARS)
+    if (len(sw) == 6 and all(c in ALLOW_LETTERS for c in sw)):
+        return w.replace(sw, sw + u'™')
+    return w
 
 
 def process_text(str):
     if not isinstance(str, basestring):
         return str
-    return u" ".join(((w + u'™' if is_tm(w) else w) for w in str.split(" ")))
+    r = u" ".join((process_word(w) for w in str.split(" ")))
+    return unescape(r, entities={'&plus;': '+'})
 
 
 def process_html(html):
@@ -37,14 +43,14 @@ def process_html(html):
         e.text = process_text(e.text)
         e.tail = process_text(e.tail)
 
-    return unescape(etree.tostring(root, encoding='utf-8', method='html'))
+    return etree.tostring(root, encoding='utf-8', method='html')
 
 
 class MainHandler(tornado.web.RequestHandler):
-
     @gen.coroutine
     def get(self):
         try:
+            print(self.request.uri)
             response = yield httpclient.AsyncHTTPClient().fetch(
                 "https://habrahabr.ru{}".format(self.request.uri))
             if response.headers["Content-Type"] == 'text/html; charset=UTF-8':
